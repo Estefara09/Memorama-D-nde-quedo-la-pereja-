@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1565C0">
+  <title>¿Dónde quedó la pareja?</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    /* Variables para los colores */
+    :root {
+      --bg-claro: #E3F2FD;
+      --azul-fuerte: #1565C0;
+      --azul-oscuro: #0D47A1;
+      --carta-color-base: #1976D2; /* Color base elegido por el usuario */
+      --carta-fondo: #1976D2; /* Fondo final (color + textura) */
+      --carta-volteada: #FFFFFF;
+      --carta-emparejada: #81D4FA;
+      --texto-oscuro: #333;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: var(--bg-claro); 
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 1rem;
+      transition: background 0.4s;
+    }
+    h1 { margin-bottom: 0.5rem; color: var(--azul-oscuro); font-size: 1.6rem; text-align: center; transition: color 0.4s;}
+    
+    /* PANEL DE ESTADÍSTICAS Y TURNOS */
+    .panel-turnos {
+      background: var(--azul-fuerte); 
+      color: white;
+      padding: 10px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+      transition: background 0.4s;
+    }
+    .marcador {
+      display: flex;
+      justify-content: space-around;
+      font-size: 0.9rem;
+      font-weight: bold;
+      margin-bottom: 8px;
+      background: rgba(0,0,0,0.15);
+      padding: 5px;
+      border-radius: 5px;
+    }
+    .jugador-punto { padding: 4px 8px; border-radius: 4px; transition: 0.3s; }
+    .jugador-punto.activo { background: #FFCA28; color: #0D47A1; transform: scale(1.1); box-shadow: 0 0 10px #FFCA28; }
+    
+    .info-partida {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+    }
+    
+    /* PANEL DE CONFIGURACIÓN */
+    .panel-config {
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      font-size: 0.9rem;
+    }
+    .panel-config label { display: block; margin-top: 8px; font-weight: bold; color: var(--azul-fuerte); transition: color 0.4s;}
+    .panel-config select, .panel-config input[type="text"] {
+      width: 100%; padding: 8px; margin-top: 4px; border: 1px solid var(--azul-fuerte); border-radius: 4px; color: var(--texto-oscuro); transition: border 0.4s;
+    }
+    
+    /* SELECTOR DE COLOR */
+    .color-picker-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 5px;
+    }
+    input[type="color"] {
+      -webkit-appearance: none;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 5px;
+      cursor: pointer;
+      padding: 0;
+      background: none;
+    }
+    input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+    input[type="color"]::-webkit-color-swatch { border: 2px solid var(--azul-oscuro); border-radius: 5px; }
+
+    .dificultad-botones { display: flex; gap: 10px; margin-top: 5px; }
+    .dificultad-botones button {
+      flex: 1; padding: 8px; border: none; border-radius: 5px; cursor: pointer;
+      background: var(--bg-claro); font-weight: bold; color: var(--azul-fuerte); transition: 0.2s; font-size: 0.85rem;
+    }
+    .dificultad-botones button.activo { background: var(--azul-fuerte); color: white; }
+
+    /* TABLERO DINÁMICO */
+    #tablero {
+      display: grid;
+      gap: 8px; 
+      max-width: 400px;
+      width: 100%;
+      margin: 0 auto;
+    }
+    
+    .carta {
+      aspect-ratio: 1;
+      background: var(--carta-fondo);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem; 
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.3s, background 0.3s;
+      transform-style: preserve-3d;
+      position: relative;
+      border: 2px solid var(--azul-oscuro);
+    }
+    .carta img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+    
+    .carta.volteada { background: var(--carta-volteada) !important; transform: rotateY(180deg); }
+    .carta.emparejada { background: var(--carta-emparejada) !important; cursor: default; opacity: 0.5; }
+    
+    .num-carta {
+      position: absolute; top: 2px; left: 4px; font-size: 10px; font-weight: bold; color: #333;
+      background: rgba(255,255,255,0.7); border-radius: 4px; padding: 0 4px; display: none;
+    }
+    .mostrar-numeros .num-carta { display: block; }
+
+    #mensaje { margin-top: 1rem; font-weight: bold; color: var(--azul-oscuro); font-size: 1.1rem; text-align: center; transition: color 0.4s;}
+    
+    button.reiniciar {
+      margin-top: 1rem; padding: 0.6rem 1.2rem; font-size: 1rem;
+      background: var(--azul-fuerte); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;
+      transition: background 0.4s;
+    }
+    button.reiniciar:hover { filter: brightness(0.8); }
+
+    /* PANTALLA FINAL */
+    #pantalla-final {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85); color: white; display: none; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 1000; text-align: center; padding: 20px;
+    }
+    #pantalla-final h2 { font-size: 2.5rem; margin-bottom: 10px; }
+    #pantalla-final p { font-size: 1.2rem; margin-bottom: 20px; line-height: 1.5; }
+    #pantalla-final button {
+      padding: 10px 20px; font-size: 1.2rem; background: white; color: var(--azul-fuerte);
+      border: none; border-radius: 8px; font-weight: bold; cursor: pointer;
+    }
+
+    /* PANTALLA DE BIENVENIDA */
+    #pantalla-bienvenida {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: var(--azul-fuerte); color: white; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 1000; text-align: center; padding: 20px;
+      transition: background 0.4s;
+    }
+    #pantalla-bienvenida h2 { font-size: 2rem; margin-bottom: 10px; }
+    #pantalla-bienvenida p { font-size: 1.2rem; margin-bottom: 20px; font-style: italic; }
+    #pantalla-bienvenida button {
+      padding: 10px 20px; font-size: 1.2rem; background: white; color: var(--azul-fuerte);
+      border: none; border-radius: 8px; font-weight: bold; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- PANTALLA DE BIENVENIDA -->
+  <div id="pantalla-bienvenida">
+    <h2>Memory Team</h2>
+    <p>"Entrena tu mente, diviértete"</p>
+    <button onclick="document.getElementById('pantalla-bienvenida').style.display='none'">¡Jugar ahora!</button>
+  </div>
+
+  <!-- PANTALLA FINAL DE RESULTADOS -->
+  <div id="pantalla-final">
+    <h2 id="titulo-ganador">¡Ganador!</h2>
+    <p id="texto-resultados"></p>
+    <button onclick="document.getElementById('pantalla-final').style.display='none'; reiniciarJuego();">Jugar de nuevo</button>
+  </div>
+
+  <!-- TÍTULO PRINCIPAL -->
+  <h1>¿Dónde quedó la pareja?</h1>
+
+  <!-- MARCADOR Y ESTADÍSTICAS -->
+  <div class="panel-turnos">
+    <div class="marcador" id="marcador-jugadores">
+      <!-- Se llena con JS -->
+    </div>
+    <div class="info-partida">
+      <div>⏱️ <span id="tiempo">00:00</span></div>
+      <div>🔄 Movs: <span id="movimientos">0</span></div>
+      <div>🏆 Récord: <span id="record">--</span></div>
+    </div>
+  </div>
+
+  <!-- PANEL DE CONFIGURACIÓN -->
+  <div class="panel-config">
+    <label>Número de jugadores:</label>
+    <select id="select-jugadores" onchange="reiniciarJuego()">
+      <option value="1">1 Jugador (Práctica)</option>
+      <option value="2" selected>2 Jugadores</option>
+      <option value="3">3 Jugadores</option>
+      <option value="4">4 Jugadores</option>
+    </select>
+
+    <label>Niveles de dificultad:</label>
+    <div class="dificultad-botones">
+      <button type="button" onclick="setDificultad('facil')" id="btn-facil" class="activo">Fácil (8)</button>
+      <button type="button" onclick="setDificultad('medio')" id="btn-medio">Medio (12)</button>
+      <button type="button" onclick="setDificultad('dificil')" id="btn-dificil">Difícil (24)</button>
+    </div>
+
+    <label style="margin-top: 15px; border-top: 1px solid #ccc; padding-top: 10px;">Color y Textura:</label>
+    <div class="color-picker-container">
+      <input type="color" id="color-picker" value="#1976D2" oninput="actualizarEstiloCarta()">
+      <select id="select-textura" onchange="actualizarEstiloCarta()" style="margin-top:0;">
+        <option value="liso">Liso (Color sólido)</option>
+        <option value="cuadricula">Cuadrícula</option>
+        <option value="puntos">Puntos</option>
+        <option value="rayas">Rayas</option>
+        <option value="marmol">Mármol</option>
+      </select>
+    </div>
+
+    <label style="margin-top: 15px;">Estilo de la cara (volteadas):</label>
+    <select id="select-dorso" onchange="actualizarDorso()">
+      <option value="color">Usar Color y Textura de arriba</option>
+      <option value="logo">Logo del equipo (Patrón blanco)</option>
+      <option value="link">Imagen por Link</option>
+    </select>
+    <input type="text" id="input-dorso-link" placeholder="Pega link de imagen para dorso" onchange="actualizarDorso()" style="display:none;">
+
+    <label>Imágenes propias (caras):</label>
+    <input type="text" id="input-imagenes" placeholder="Pega links separados por coma" onchange="reiniciarJuego()">
+
+    <label><input type="checkbox" id="check-numeros" onchange="toggleNumeros()"> Mostrar números en cartas</label>
+  </div>
+
+  <div id="tablero"></div>
+  <div id="mensaje"></div>
+  <button class="reiniciar" onclick="reiniciarJuego()">Reiniciar Partida</button>
+
+  <script>
+    // --- VARIABLES GLOBALES ---
+    let emojisBase = [
+      '🍎','🐶','🌟','🎈','🍕','🚗','🐱','🌈','🍉','🐸','⚽','🎸',
+      '🍦','🚀','👻','🐼','🦊','🍔','🚁','💡','🎮','🍩','🦁','🔮'
+    ]; 
+    let cartas = [];
+    let primeraCarta = null;
+    let segundaCarta = null;
+    let bloqueado = false;
+    let paresEncontrados = 0;
+
+    // Variables de control
+    let tiempoSegundos = 0;
+    let intervaloCronometro = null;
+    let cronometroIniciado = false;
+    let movimientos = 0;
+    let recordActual = localStorage.getItem('memoramaRecord') || '--';
+    
+    // Variables Multijugador
+    let numJugadores = 2;
+    let turnoActual = 0; 
+    let puntosJugadores = [];
+
+    // Elementos del DOM
+    const tablero = document.getElementById('tablero');
+    const mensaje = document.getElementById('mensaje');
+    const displayTiempo = document.getElementById('tiempo');
+    const displayMovimientos = document.getElementById('movimientos');
+    const displayRecord = document.getElementById('record');
+    const contenedorMarcador = document.getElementById('marcador-jugadores');
+    const colorPicker = document.getElementById('color-picker');
+    const selectTextura = document.getElementById('select-textura');
+
+    displayRecord.textContent = recordActual;
+
+    // --- CAMBIAR COLOR Y TEXTURA ---
+    function actualizarEstiloCarta() {
+      const color = colorPicker.value;
+      const textura = selectTextura.value;
+      
+      let backgroundFinal = color;
+
+      // Convertimos el color hex a RGB para poder darle transparencia a la textura
+      const hexToRgb = (hex) => {
+        let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '25, 118, 210';
+      };
+      const rgb = hexToRgb(color);
+
+      if (textura === 'cuadricula') {
+        backgroundFinal = `
+          linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px),
+          ${color}`;
+        document.documentElement.style.setProperty('--carta-bg-size', '20px 20px, 20px 20px, auto');
+      } 
+      else if (textura === 'puntos') {
+        backgroundFinal = `radial-gradient(rgba(255,255,255,0.4) 2px, transparent 2px), ${color}`;
+        document.documentElement.style.setProperty('--carta-bg-size', '15px 15px, auto');
+      } 
+      else if (textura === 'rayas') {
+        backgroundFinal = `repeating-linear-gradient(45deg, rgba(255,255,255,0.15) 0, rgba(255,255,255,0.15) 10px, transparent 10px, transparent 20px), ${color}`;
+        document.documentElement.style.setProperty('--carta-bg-size', 'auto');
+      }
+      else if (textura === 'marmol') {
+        backgroundFinal = `radial-gradient(circle at 100% 50%, rgba(255,255,255,0.2) 0%, transparent 50%), 
+                           radial-gradient(circle at 0% 50%, rgba(0,0,0,0.1) 0%, transparent 50%), ${color}`;
+        document.documentElement.style.setProperty('--carta-bg-size', 'auto');
+      }
+      else {
+        // Liso
+        document.documentElement.style.setProperty('--carta-bg-size', 'auto');
+      }
+
+      document.documentElement.style.setProperty('--carta-fondo', backgroundFinal);
+      
+      // Actualizamos las cartas ya dibujadas
+      const tipoDorso = document.getElementById('select-dorso').value;
+      if (tipoDorso === 'color') {
+        document.querySelectorAll('.carta').forEach(c => {
+          if(!c.classList.contains('volteada') && !c.classList.contains('emparejada')) {
+            c.style.background = backgroundFinal;
+            c.style.backgroundSize = getComputedStyle(document.documentElement).getPropertyValue('--carta-bg-size');
+          }
+        });
+      }
+    }
+
+    // --- DIFICULTAD ---
+    function setDificultad(nivel) {
+      document.querySelectorAll('.dificultad-botones button').forEach(b => b.classList.remove('activo'));
+      document.getElementById('btn-' + nivel).classList.add('activo');
+      reiniciarJuego();
+    }
+
+    // --- CRONÓMETRO ---
+    function iniciarCronometro() {
+      if (cronometroIniciado) return;
+      cronometroIniciado = true;
+      intervaloCronometro = setInterval(() => {
+        tiempoSegundos++;
+        let minutos = Math.floor(tiempoSegundos / 60);
+        let segundos = tiempoSegundos % 60;
+        displayTiempo.textContent = `${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+      }, 1000);
+    }
+
+    function detenerCronometro() {
+      clearInterval(intervaloCronometro);
+    }
+
+    function reiniciarCronometro() {
+      detenerCronometro();
+      cronometroIniciado = false;
+      tiempoSegundos = 0;
+      displayTiempo.textContent = '00:00';
+    }
+
+    // --- FUNCIONES AUXILIARES ---
+    function barajar(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function actualizarDorso() {
+      const tipo = document.getElementById('select-dorso').value;
+      const linkInput = document.getElementById('input-dorso-link');
+      const todasLasCartas = document.querySelectorAll('.carta');
+      const fondoActual = getComputedStyle(document.documentElement).getPropertyValue('--carta-fondo').trim();
+      const bgSizeActual = getComputedStyle(document.documentElement).getPropertyValue('--carta-bg-size').trim();
+      
+      if (tipo === 'link') {
+        linkInput.style.display = 'block';
+        let url = linkInput.value;
+        todasLasCartas.forEach(c => {
+          if(!c.classList.contains('volteada') && !c.classList.contains('emparejada')) {
+            c.style.background = `url('${url}') center/cover`;
+            c.style.backgroundSize = 'cover';
+          }
+        });
+      } else {
+        linkInput.style.display = 'none';
+        todasLasCartas.forEach(c => {
+          if(!c.classList.contains('volteada') && !c.classList.contains('emparejada')) {
+            if (tipo === 'color') {
+              c.style.background = fondoActual; 
+              c.style.backgroundSize = bgSizeActual;
+            }
+            if (tipo === 'logo') {
+              c.style.background = 'radial-gradient(#90CAF9 20%, transparent 20%), #FFFFFF';
+              c.style.backgroundSize = '10px 10px';
+            }
+          }
+        });
+      }
+    }
+
+    function toggleNumeros() {
+      const mostrar = document.getElementById('check-numeros').checked;
+      if (mostrar) tablero.classList.add('mostrar-numeros');
+      else tablero.classList.remove('mostrar-numeros');
+    }
+
+    function actualizarMarcador() {
+      contenedorMarcador.innerHTML = '';
+      for (let i = 0; i < numJugadores; i++) {
+        const div = document.createElement('div');
+        div.className = `jugador-punto ${i === turnoActual ? 'activo' : ''}`;
+        div.innerHTML = `J${i+1}: <span>${puntosJugadores[i]}</span>`;
+        contenedorMarcador.appendChild(div);
+      }
+    }
+
+    // --- LÓGICA PRINCIPAL ---
+    function reiniciarJuego() {
+      tablero.innerHTML = '';
+      mensaje.textContent = '';
+      paresEncontrados = 0;
+      bloqueado = false;
+      primeraCarta = null;
+      segundaCarta = null;
+      movimientos = 0;
+      displayMovimientos.textContent = movimientos;
+      
+      reiniciarCronometro();
+
+      numJugadores = parseInt(document.getElementById('select-jugadores').value);
+      turnoActual = 0;
+      puntosJugadores = Array(numJugadores).fill(0);
+      actualizarMarcador();
+
+      let cantidadParejas = 8; 
+      if (document.getElementById('btn-medio').classList.contains('activo')) cantidadParejas = 12;
+      if (document.getElementById('btn-dificil').classList.contains('activo')) cantidadParejas = 24;
+
+      if (cantidadParejas <= 8) {
+        tablero.style.gridTemplateColumns = 'repeat(4, 1fr)'; 
+      } else if (cantidadParejas <= 12) {
+        tablero.style.gridTemplateColumns = 'repeat(6, 1fr)'; 
+      } else {
+        tablero.style.gridTemplateColumns = 'repeat(6, 1fr)'; 
+      }
+
+      const linksImagenes = document.getElementById('input-imagenes').value.split(',').map(l => l.trim()).filter(l => l !== '');
+      let contenidoCartas = [];
+
+      const esImagenValida = (url) => {
+        return url.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) != null || url.includes('images.unsplash.com') || url.includes('picsum.photos');
+      };
+
+      if (linksImagenes.length >= cantidadParejas) {
+        let imagenesValidas = linksImagenes.filter(esImagenValida);
+        
+        if (imagenesValidas.length >= cantidadParejas) {
+          let seleccionadas = imagenesValidas.slice(0, cantidadParejas);
+          contenidoCartas = [...seleccionadas, ...seleccionadas];
+        } else {
+          contenidoCartas = Array(cantidadParejas * 2).fill('ROTO');
+        }
+      } else {
+        let seleccion = emojisBase.slice(0, cantidadParejas);
+        contenidoCartas = [...seleccion, ...seleccion];
+      }
+
+      cartas = barajar(contenidoCartas);
+
+      cartas.forEach((contenido, index) => {
+        const div = document.createElement('div');
+        div.classList.add('carta');
+        div.dataset.valor = contenido;
+        
+        const num = document.createElement('span');
+        num.className = 'num-carta';
+        num.textContent = index + 1;
+        div.appendChild(num);
+
+        if (contenido === 'ROTO') {
+          const spanRoto = document.createElement('span');
+          spanRoto.textContent = '🚫';
+          spanRoto.className = 'contenido-emoji';
+          spanRoto.style.display = 'none'; 
+          spanRoto.style.fontSize = '2rem';
+          div.appendChild(spanRoto);
+        } else if (contenido.startsWith('http')) {
+          const img = document.createElement('img');
+          img.src = contenido;
+          img.style.display = 'none';
+          img.onerror = () => { 
+            img.style.display = 'none';
+            div.innerHTML += '<span style="font-size:2rem; display:none;" class="contenido-emoji">🚫</span>'; 
+          };
+          div.appendChild(img);
+        } else {
+          const spanEmoji = document.createElement('span');
+          spanEmoji.textContent = '';
+          spanEmoji.className = 'contenido-emoji';
+          div.appendChild(spanEmoji);
+        }
+
+        div.addEventListener('click', voltearCarta);
+        tablero.appendChild(div);
+      });
+      
+      actualizarEstiloCarta();
+      actualizarDorso(); 
+      toggleNumeros();   
+    }
+
+    function voltearCarta(e) {
+      if (bloqueado) return;
+      const carta = e.currentTarget;
+      if (carta.classList.contains('volteada') || carta.classList.contains('emparejada')) return;
+
+      iniciarCronometro();
+
+      const img = carta.querySelector('img');
+      const emoji = carta.querySelector('.contenido-emoji');
+      if (img) img.style.display = 'block';
+      
+      if (emoji) {
+        if (carta.dataset.valor === 'ROTO') emoji.textContent = '🚫';
+        else emoji.textContent = carta.dataset.valor;
+        emoji.style.display = 'block';
+      }
+
+      carta.classList.add('volteada');
+      carta.style.background = '#fff'; 
+      carta.style.backgroundSize = 'auto';
+
+      if (!primeraCarta) {
+        primeraCarta = carta;
+        return;
+      }
+
+      segundaCarta = carta;
+      bloqueado = true;
+      movimientos++;
+      displayMovimientos.textContent = movimientos;
+
+      if (primeraCarta.dataset.valor === segundaCarta.dataset.valor) {
+        primeraCarta.classList.add('emparejada');
+        segundaCarta.classList.add('emparejada');
+        paresEncontrados++;
+        
+        puntosJugadores[turnoActual]++;
+        actualizarMarcador();
+        reiniciarTurno();
+
+        if (paresEncontrados === (cartas.length / 2)) {
+          detenerCronometro();
+          mostrarPantallaFinal();
+        }
+      } else {
+        setTimeout(() => {
+          [primeraCarta, segundaCarta].forEach(c => {
+            c.classList.remove('volteada');
+            c.style.background = ''; 
+            const i = c.querySelector('img');
+            const em = c.querySelector('.contenido-emoji');
+            if (i) i.style.display = 'none';
+            if (em) em.style.display = 'none';
+          });
+          actualizarDorso(); 
+          reiniciarTurno();
+
+          turnoActual = (turnoActual + 1) % numJugadores;
+          actualizarMarcador();
+        }, 1000);
+      }
+    }
+
+    function reiniciarTurno() {
+      primeraCarta = null;
+      segundaCarta = null;
+      bloqueado = false;
+    }
+
+    function mostrarPantallaFinal() {
+      const pantalla = document.getElementById('pantalla-final');
+      const titulo = document.getElementById('titulo-ganador');
+      const texto = document.getElementById('texto-resultados');
+
+      let maxPuntos = Math.max(...puntosJugadores);
+      let ganadores = [];
+      
+      puntosJugadores.forEach((puntos, index) => {
+        if (puntos === maxPuntos) ganadores.push(`Jugador ${index + 1}`);
+      });
+
+      if (ganadores.length > 1) {
+        titulo.textContent = "¡Empate! 🤝";
+        titulo.style.color = "#FFCA28";
+      } else {
+        titulo.textContent = `¡Ganó el ${ganadores[0]}! 🏆`;
+        titulo.style.color = "#81D4FA";
+      }
+
+      let textoPuntos = "";
+      puntosJugadores.forEach((puntos, i) => {
+        textoPuntos += `Jugador ${i+1}: ${puntos} pares<br>`;
+      });
+      
+      texto.innerHTML = `${textoPuntos}<br>Tiempo: ${displayTiempo.textContent}<br>Movimientos totales: ${movimientos}`;
+      
+      pantalla.style.display = 'flex';
+
+      if (numJugadores === 1) {
+        if (recordActual === '--' || movimientos < parseInt(recordActual)) {
+           localStorage.setItem('memoramaRecord', movimientos);
+           recordActual = movimientos;
+           displayRecord.textContent = recordActual;
+           texto.innerHTML += "<br><br>¡NUEVO RÉCORD! 🏆";
+        }
+      }
+    }
+
+    // Iniciar al cargar
+    reiniciarJuego();
+
+    // Service Worker (PWA)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => console.log('Error SW:', err));
+      });
+    }
+  </script>
+</body>
+</html>
